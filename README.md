@@ -36,4 +36,5 @@ The identification of misappropriated assets is treated as a high-dimensional ne
 <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">📄 Credits</h2>
 <ul style="padding-left: 1.5rem; margin-bottom: 2rem; color: #52525b;">
     <li style="margin-bottom: 0.5rem;">A product by <strong><a href="https://emogi.space" style="color: #09090b; text-decoration: underline;">Team Emogi</a></strong>.</li>
+    <li style="margin-bottom: 0.5rem;">Hackaton Team Name: "Quantum Stack".</li>
 </ul>

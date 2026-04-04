@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aegis Labs | Threat Intelligence</title>
+    <title>Aegis Labs | Continuous Threat Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -38,13 +38,22 @@
         ::-webkit-scrollbar-thumb { background: #d4d4d8; }
         ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
         .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02); }
-        .scanning-active { position: relative; overflow: hidden; }
-        .scanning-active::after {
+        
+        .radar-sweep { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 0.75rem;}
+        .radar-sweep::after {
             content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0,0,0,0.03), transparent);
-            animation: sweep 2s infinite linear; pointer-events: none;
+            background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.05), transparent);
+            animation: sweep 3s infinite linear;
         }
         @keyframes sweep { 100% { left: 200%; } }
+        
+        /* Form Inputs */
+        .input-field {
+            width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem;
+            border: 1px solid #d4d4d8; border-radius: 0.375rem; outline: none;
+            transition: border-color 0.2s; background: #fafafa;
+        }
+        .input-field:focus { border-color: #09090b; }
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col relative z-0">
@@ -55,14 +64,14 @@
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-zinc-950 flex items-center justify-center rounded-sm">
-                    <i class="fas fa-shield-halved text-white text-xs"></i>
+                    <i class="fas fa-radar text-white text-xs"></i>
                 </div>
-                <span class="text-lg font-bold tracking-tight text-zinc-950">Aegis Labs Engine</span>
+                <span class="text-lg font-bold tracking-tight text-zinc-950">Aegis Continuous Engine</span>
             </div>
             <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2 px-3 py-1 bg-zinc-100 border border-zinc-200 rounded-full">
-                    <div class="w-2 h-2 bg-success rounded-full"></div>
-                    <span class="text-xs font-mono text-zinc-600 font-medium tracking-tight">API.EMOGI.SPACE : ONLINE</span>
+                <div class="flex items-center gap-2 px-3 py-1 bg-zinc-100 border border-zinc-200 rounded-full" id="systemStatus">
+                    <div class="w-2 h-2 bg-zinc-400 rounded-full"></div>
+                    <span class="text-xs font-mono text-zinc-600 font-medium tracking-tight">SYSTEM_IDLE</span>
                 </div>
             </div>
         </div>
@@ -71,128 +80,128 @@
     <main class="flex-grow max-w-7xl mx-auto px-6 py-12 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         <div class="lg:col-span-4 flex flex-col gap-6">
-            <div class="bg-white border border-zinc-200 rounded-xl p-6 card-shadow">
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 card-shadow relative" id="ingestionCard">
                 <div class="flex items-center justify-between mb-5">
-                    <h2 class="font-semibold text-zinc-900">Ingestion Pipeline</h2>
-                    <span class="text-xs font-mono text-zinc-400">CLIP ViT-B-32</span>
+                    <h2 class="font-semibold text-zinc-900">Asset Ingestion</h2>
+                    <span class="text-[10px] font-mono bg-zinc-100 px-2 py-1 rounded text-zinc-500 uppercase tracking-wider">LLM + CLIP</span>
                 </div>
                 
-                <div id="dropZone" class="border border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 rounded-lg p-8 text-center transition-colors cursor-pointer relative group">
-                    <input type="file" id="videoFile" accept="video/mp4,video/x-m4v,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                    
-                    <div id="uploadPrompt" class="flex flex-col items-center pointer-events-none">
-                        <i class="fas fa-arrow-up-from-bracket text-zinc-400 mb-3 text-xl group-hover:text-zinc-600 transition-colors"></i>
-                        <p class="text-sm font-medium text-zinc-900 mb-1">Select video file</p>
-                        <p class="text-xs text-zinc-500">MP4 format required</p>
+                <form id="ingestionForm" class="space-y-4">
+                    <div id="dropZone" class="border border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 rounded-lg p-6 text-center transition-colors cursor-pointer relative group">
+                        <input type="file" id="videoFile" accept="video/mp4,video/x-m4v,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" required>
+                        <div id="uploadPrompt" class="flex flex-col items-center pointer-events-none">
+                            <i class="fas fa-cloud-upload-alt text-zinc-400 mb-2 text-lg group-hover:text-zinc-600 transition-colors"></i>
+                            <p class="text-sm font-medium text-zinc-900">Select source video</p>
+                            <p class="text-xs text-zinc-500 mt-1">MP4 format</p>
+                        </div>
+                        <div id="filePreview" class="hidden flex-col items-center pointer-events-none">
+                            <i class="fas fa-file-video text-zinc-900 mb-1 text-lg"></i>
+                            <p id="fileName" class="text-xs font-medium text-zinc-900 truncate w-full px-2"></p>
+                        </div>
                     </div>
 
-                    <div id="filePreview" class="hidden flex-col items-center pointer-events-none">
-                        <i class="fas fa-file-video text-zinc-900 mb-2 text-xl"></i>
-                        <p id="fileName" class="text-sm font-medium text-zinc-900 truncate w-full px-4"></p>
+                    <div class="space-y-3 pt-2">
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-600 mb-1">Asset Title</label>
+                            <input type="text" id="metaTitle" class="input-field" placeholder="e.g. Finals Highlight Reel" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-zinc-600 mb-1">Description Context</label>
+                            <textarea id="metaDesc" class="input-field min-h-[60px]" placeholder="Key moments, player names..."></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-600 mb-1">Language</label>
+                                <input type="text" id="metaLang" class="input-field" placeholder="e.g. English">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-zinc-600 mb-1">Country</label>
+                                <input type="text" id="metaCountry" class="input-field" placeholder="e.g. US">
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <button id="submitBtn" disabled class="w-full mt-4 bg-zinc-950 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex justify-center items-center gap-2">
-                    <span id="btnText">Upload & Scan</span>
-                </button>
+                    <button type="submit" id="submitBtn" class="w-full mt-2 bg-zinc-950 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+                        <i class="fas fa-satellite-dish"></i> <span id="btnText">Deploy Scanner</span>
+                    </button>
+                </form>
             </div>
-
-            <div id="statusTracker" class="bg-white border border-zinc-200 rounded-xl p-6 card-shadow hidden">
-                <h3 class="text-xs font-mono text-zinc-400 mb-6 uppercase tracking-wider">Job Pipeline</h3>
-                <ul class="space-y-5 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-[-128px] before:h-full before:w-[1px] before:bg-zinc-200">
-                    
-                    <li class="relative flex items-start gap-4">
-                        <div id="step1-icon" class="w-5 h-5 rounded-full bg-zinc-950 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white">
-                            <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-                        </div>
-                        <div class="flex-1">
-                            <h4 id="step1-text" class="text-sm font-medium text-zinc-900">Uploading to server...</h4>
-                        </div>
-                    </li>
-                    
-                    <li class="relative flex items-start gap-4 opacity-40" id="step2-container">
-                        <div id="step2-icon" class="w-5 h-5 rounded-full bg-white border-2 border-zinc-300 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white"></div>
-                        <div class="flex-1">
-                            <h4 id="step2-text" class="text-sm font-medium text-zinc-900">Job Queued</h4>
-                            <p class="text-xs text-zinc-500">Waiting for background worker</p>
-                        </div>
-                    </li>
-                    
-                    <li class="relative flex items-start gap-4 opacity-40" id="step3-container">
-                        <div id="step3-icon" class="w-5 h-5 rounded-full bg-white border-2 border-zinc-300 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white"></div>
-                        <div class="flex-1">
-                            <h4 id="step3-text" class="text-sm font-medium text-zinc-900">Processing & Matching</h4>
-                            <p class="text-xs text-zinc-500">Extracting features & querying yt-dlp</p>
-                        </div>
-                    </li>
-                </ul>
+            
+            <div id="processLogs" class="bg-zinc-950 rounded-xl p-5 card-shadow hidden flex-col h-48">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xs font-mono text-zinc-400 uppercase tracking-wider">System Output</h3>
+                    <div class="w-1.5 h-1.5 bg-success rounded-full animate-pulse"></div>
+                </div>
+                <div id="logContainer" class="flex-grow overflow-y-auto font-mono text-[10px] text-zinc-400 space-y-1.5">
+                    </div>
             </div>
         </div>
 
-        <div class="lg:col-span-8 bg-white border border-zinc-200 rounded-xl flex flex-col h-[600px] overflow-hidden card-shadow relative">
+        <div class="lg:col-span-8 bg-white border border-zinc-200 rounded-xl flex flex-col h-[700px] overflow-hidden card-shadow relative">
             <div class="px-6 py-4 border-b border-zinc-200 bg-zinc-50 flex justify-between items-center z-20">
                 <div>
-                    <h2 class="font-semibold text-zinc-900">Threat Intelligence</h2>
-                    <p class="text-xs text-zinc-500 font-mono mt-0.5">Live monitoring array</p>
+                    <h2 class="font-semibold text-zinc-900">Live Detection Feed</h2>
+                    <p class="text-xs text-zinc-500 font-mono mt-0.5" id="liveStatusText">Awaiting initialization...</p>
                 </div>
-                <div class="flex gap-6 text-right">
-                    <div>
-                        <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Flags</div>
-                        <div class="text-lg font-semibold text-zinc-900" id="statMatches">0</div>
-                    </div>
+                <div class="text-right">
+                    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Total Flags</div>
+                    <div class="text-2xl font-bold text-zinc-900" id="statMatches">0</div>
                 </div>
             </div>
 
-            <div id="scanningOverlay" class="absolute inset-0 top-[72px] bg-white/90 backdrop-blur-sm z-10 hidden flex-col items-center justify-center border-t border-zinc-200">
-                <i class="fas fa-circle-notch fa-spin text-zinc-900 text-3xl mb-4"></i>
-                <h3 class="font-medium text-zinc-900 mb-1">Polling Server...</h3>
-                <p class="text-xs font-mono text-zinc-500">Continuously checking status from SQLite</p>
-            </div>
-
-            <div id="resultsContainer" class="p-6 overflow-y-auto flex-grow bg-white z-0">
+            <div id="resultsContainer" class="p-6 overflow-y-auto flex-grow bg-white z-0 relative">
                 <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center">
                     <div class="w-12 h-12 mb-4 bg-zinc-100 border border-zinc-200 rounded-lg flex items-center justify-center text-zinc-400">
-                        <i class="fas fa-satellite-dish"></i>
+                        <i class="fas fa-shield-blank"></i>
                     </div>
-                    <h3 class="text-sm font-medium text-zinc-900 mb-1">Awaiting Telemetry</h3>
-                    <p class="text-sm text-zinc-500 max-w-xs">Upload an asset to begin structural similarity comparison.</p>
+                    <h3 class="text-sm font-medium text-zinc-900 mb-1">Standby Mode</h3>
+                    <p class="text-sm text-zinc-500 max-w-xs">Upload media and context to initiate the continuous detection loop.</p>
                 </div>
+                
+                <div id="matchesList" class="flex flex-col gap-3 hidden">
+                    </div>
             </div>
         </div>
     </main>
 
     <script>
-        // TARGETING YOUR HOSTED API DIRECTLY
+        // TARGETING YOUR PRODUCTION EMOGI SERVER
         const API_BASE = "https://api.emogi.space"; 
         
         let pollingInterval = null;
+        let jobIsRunning = false;
 
+        // DOM Elements
+        const form = document.getElementById('ingestionForm');
         const fileInput = document.getElementById('videoFile');
         const dropZone = document.getElementById('dropZone');
-        const uploadPrompt = document.getElementById('uploadPrompt');
         const filePreview = document.getElementById('filePreview');
         const fileName = document.getElementById('fileName');
+        const uploadPrompt = document.getElementById('uploadPrompt');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
         
-        const statusTracker = document.getElementById('statusTracker');
-        const resultsContainer = document.getElementById('resultsContainer');
-        const emptyState = document.getElementById('emptyState');
+        const systemStatus = document.getElementById('systemStatus');
+        const liveStatusText = document.getElementById('liveStatusText');
         const statMatches = document.getElementById('statMatches');
-        const scanningOverlay = document.getElementById('scanningOverlay');
-
-        fileInput.addEventListener('change', handleFileSelect);
+        const emptyState = document.getElementById('emptyState');
+        const matchesList = document.getElementById('matchesList');
         
+        const processLogs = document.getElementById('processLogs');
+        const logContainer = document.getElementById('logContainer');
+        const ingestionCard = document.getElementById('ingestionCard');
+
+        // File Drag & Drop Logic
+        fileInput.addEventListener('change', handleFileSelect);
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropZone.classList.add('border-zinc-500', 'bg-zinc-100');
+            if(!jobIsRunning) dropZone.classList.add('border-zinc-500', 'bg-zinc-100');
         });
-        
         ['dragleave', 'drop'].forEach(evt => {
             dropZone.addEventListener(evt, (e) => {
                 e.preventDefault();
                 dropZone.classList.remove('border-zinc-500', 'bg-zinc-100');
-                if (evt === 'drop' && e.dataTransfer.files.length) {
+                if (evt === 'drop' && e.dataTransfer.files.length && !jobIsRunning) {
                     fileInput.files = e.dataTransfer.files;
                     handleFileSelect();
                 }
@@ -200,187 +209,161 @@
         });
 
         function handleFileSelect() {
-            const file = fileInput.files[0];
-            if (file) {
+            if (fileInput.files[0]) {
                 uploadPrompt.classList.add('hidden');
                 filePreview.classList.remove('hidden');
                 filePreview.classList.add('flex');
-                fileName.textContent = file.name;
-                submitBtn.disabled = false;
+                fileName.textContent = fileInput.files[0].name;
             } else {
                 uploadPrompt.classList.remove('hidden');
                 filePreview.classList.add('hidden');
                 filePreview.classList.remove('flex');
-                submitBtn.disabled = true;
             }
         }
 
-        submitBtn.addEventListener('click', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
+        // Helper: Add log to mini console
+        function addLog(message, isError = false) {
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            const logEl = document.createElement('div');
+            logEl.className = isError ? "text-danger" : "text-zinc-400";
+            logEl.innerHTML = `<span class="text-zinc-600">[${time}]</span> ${message}`;
+            logContainer.appendChild(logEl);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
 
-            // Reset UI
-            emptyState.classList.add('hidden');
-            resultsContainer.innerHTML = '';
-            statusTracker.classList.remove('hidden');
+        // Handle Submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!fileInput.files[0]) return;
+
+            // UI State -> Running
+            jobIsRunning = true;
             submitBtn.disabled = true;
-            btnText.innerHTML = `Uploading...`;
-            dropZone.classList.add('scanning-active');
+            btnText.innerHTML = `Establishing Uplink...`;
             
-            updateStep(1, 'Uploading file...', 'active');
-            updateStep(2, 'Job Queued', 'pending');
-            updateStep(3, 'Processing & Matching', 'pending');
+            emptyState.classList.add('hidden');
+            matchesList.classList.remove('hidden');
+            matchesList.innerHTML = ''; 
+            
+            processLogs.classList.remove('hidden');
+            processLogs.classList.add('flex');
+            logContainer.innerHTML = '';
+            
+            ingestionCard.classList.add('radar-sweep');
+            systemStatus.innerHTML = `<div class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div><span class="text-xs font-mono text-yellow-600 font-medium tracking-tight">UPLOADING</span>`;
 
+            addLog("Packaging context and binary payload...");
+
+            // Append File + Metadata to FormData
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileInput.files[0]);
+            formData.append('title', document.getElementById('metaTitle').value);
+            formData.append('description', document.getElementById('metaDesc').value);
+            formData.append('language', document.getElementById('metaLang').value);
+            formData.append('country', document.getElementById('metaCountry').value);
 
             try {
-                // 1. Hit the /upload endpoint
+                addLog("Transmitting to Emogi Detection API...");
+                
                 const response = await fetch(`${API_BASE}/upload`, { 
                     method: 'POST', 
                     body: formData 
                 });
                 
-                if (!response.ok) throw new Error('Upload failed');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
                 const data = await response.json();
                 
-                updateStep(1, `Upload Success`, 'done');
-                updateStep(2, 'Job Queued in Database', 'active');
+                addLog(`Transmission success. Assigned Job ID: ${data.job_id}`, false);
+                addLog("LLM generating semantic queries...");
                 
-                // 2. Begin continuous polling
-                startPolling(data.job_id);
+                startContinuousMonitoring(data.job_id);
 
             } catch (error) {
-                console.error("Error:", error);
-                updateStep(1, 'Upload Failed (Check CORS)', 'error');
-                submitBtn.disabled = false;
-                btnText.innerHTML = `Retry Upload`;
-                dropZone.classList.remove('scanning-active');
-                alert("Upload failed. Ensure you are accessing this page from a valid emogi.space domain to bypass the server CORS policy.");
+                console.error("Upload Error:", error);
+                addLog("FATAL: Upload failed. Check CORS configuration.", true);
+                resetUI();
             }
         });
 
-        function startPolling(jobId) {
-            scanningOverlay.classList.remove('hidden');
-            scanningOverlay.classList.add('flex');
-            
-            // Poll every 5 seconds continuously until status is 'done'
+        // Continuous Polling
+        function startContinuousMonitoring(jobId) {
+            btnText.innerHTML = `Monitoring Active (Job ${jobId})`;
+            systemStatus.innerHTML = `<div class="w-2 h-2 bg-success rounded-full animate-pulse"></div><span class="text-xs font-mono text-success font-medium tracking-tight">SCANNING LOOP ACTIVE</span>`;
+            liveStatusText.innerHTML = `Continuous loop verifying new uploads for Job <span class="text-zinc-900 font-bold">${jobId}</span>...`;
+
+            // Poll every 15 seconds to check for new database records
             pollingInterval = setInterval(async () => {
                 try {
+                    addLog("Polling SQLite for latest detection logs...");
                     const response = await fetch(`${API_BASE}/status?job_id=${jobId}`);
                     const data = await response.json();
 
-                    if (data.status === 'processing') {
-                        updateStep(2, 'Job Picked Up', 'done');
-                        updateStep(3, 'Extracting Features...', 'active');
-                    }
-
-                    if (data.status === 'done') {
-                        // Stop continuous polling
-                        clearInterval(pollingInterval);
-                        scanningOverlay.classList.add('hidden');
-                        scanningOverlay.classList.remove('flex');
-                        
-                        updateStep(3, 'Analysis Complete', 'done');
+                    if (data.matches && data.matches.length > 0) {
                         renderMatches(data.matches);
-                        
-                        submitBtn.disabled = false;
-                        btnText.innerHTML = `Scan New Asset`;
-                        dropZone.classList.remove('scanning-active');
-                        fileInput.value = '';
-                    } else if (data.status === 'not found') {
-                        clearInterval(pollingInterval);
-                        scanningOverlay.classList.add('hidden');
-                        scanningOverlay.classList.remove('flex');
-                        
-                        updateStep(2, 'Job Not Found / Error', 'error');
-                        submitBtn.disabled = false;
-                        dropZone.classList.remove('scanning-active');
+                    } else {
+                        addLog("No new unauthorized signatures detected.");
                     }
 
                 } catch (error) {
-                    console.error("Polling error:", error);
+                    addLog("Warning: Telemetry request timeout/failed.", true);
                 }
-            }, 5000); 
+            }, 15000); 
         }
 
+        let existingMatchUrls = new Set();
+
         function renderMatches(matches) {
-            resultsContainer.innerHTML = '';
             statMatches.innerText = matches.length;
             
-            if (matches.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center text-center">
-                        <div class="w-12 h-12 mb-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-center text-success">
-                            <i class="fas fa-check"></i>
-                        </div>
-                        <h3 class="text-sm font-medium text-zinc-900 mb-1">Zero Violations Found</h3>
-                        <p class="text-sm text-zinc-500">Asset propagation is secure.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const listWrapper = document.createElement('div');
-            listWrapper.className = "flex flex-col gap-3";
-            
             matches.forEach((match) => {
-                // SQLite returns list of tuples: [title, url, score]
                 const title = match[0];
                 const url = match[1];
                 const score = (match[2] * 100).toFixed(1);
+
+                // Only render if it's a NEW match
+                if (existingMatchUrls.has(url)) return;
                 
+                existingMatchUrls.add(url);
+                addLog(`⚠️ VIOLATION DETECTED: [${score}% Match]`, true);
+
                 const item = document.createElement('div');
-                item.className = "flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg hover:border-zinc-300 transition-colors";
+                item.className = "flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-zinc-50 border border-danger/20 rounded-lg shadow-sm animate-pulse";
                 
+                // Remove pulse after 3 seconds
+                setTimeout(() => item.classList.remove('animate-pulse', 'border-danger/20', 'bg-zinc-50'), 3000);
+                setTimeout(() => item.classList.add('bg-white', 'border-zinc-200'), 3000);
+
                 item.innerHTML = `
                     <div class="flex-grow min-w-0">
-                        <h4 class="text-sm font-semibold text-zinc-900 truncate mb-1" title="${title}">${title}</h4>
+                        <h4 class="text-sm font-semibold text-zinc-900 truncate mb-1">${title}</h4>
                         <div class="flex items-center gap-3">
-                            <a href="${url}" target="_blank" class="text-xs font-mono text-zinc-500 hover:text-zinc-900 truncate">
-                                ${url} <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+                            <a href="${url}" target="_blank" class="text-xs font-mono text-danger hover:text-red-700 truncate">
+                                <i class="fab fa-youtube"></i> ${url}
                             </a>
                         </div>
                     </div>
 
                     <div class="flex items-center gap-4 shrink-0 mt-3 sm:mt-0 w-full sm:w-auto">
                         <div class="text-right border-l border-zinc-200 pl-4">
-                            <div class="text-[10px] font-mono text-zinc-500 uppercase">Match Confidence</div>
+                            <div class="text-[10px] font-mono text-zinc-500 uppercase">Confidence</div>
                             <div class="text-sm font-semibold text-danger">${score}%</div>
                         </div>
                     </div>
                 `;
-                listWrapper.appendChild(item);
+                
+                // Prepend to show newest at the top
+                matchesList.insertBefore(item, matchesList.firstChild);
             });
-            
-            resultsContainer.appendChild(listWrapper);
         }
 
-        function updateStep(step, text, state) {
-            const container = document.getElementById(`step${step}-container`);
-            const iconEl = document.getElementById(`step${step}-icon`);
-            const textEl = document.getElementById(`step${step}-text`);
-
-            if(container) container.classList.remove('opacity-40');
-            textEl.innerText = text;
-
-            const baseClasses = "w-5 h-5 rounded-full z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white ";
-
-            if (state === 'pending') {
-                if(container) container.classList.add('opacity-40');
-                iconEl.className = baseClasses + "bg-white border-2 border-zinc-300";
-                iconEl.innerHTML = "";
-            } else if (state === 'active') {
-                iconEl.className = baseClasses + "bg-zinc-950";
-                iconEl.innerHTML = `<div class="w-1.5 h-1.5 bg-white rounded-full"></div>`;
-            } else if (state === 'done') {
-                iconEl.className = baseClasses + "bg-zinc-950";
-                iconEl.innerHTML = `<i class="fas fa-check text-[10px] text-white"></i>`;
-            } else if (state === 'error') {
-                iconEl.className = baseClasses + "bg-danger";
-                iconEl.innerHTML = `<i class="fas fa-times text-[10px] text-white"></i>`;
-            }
+        function resetUI() {
+            jobIsRunning = false;
+            submitBtn.disabled = false;
+            btnText.innerHTML = `Deploy Scanner`;
+            ingestionCard.classList.remove('radar-sweep');
+            systemStatus.innerHTML = `<div class="w-2 h-2 bg-zinc-400 rounded-full"></div><span class="text-xs font-mono text-zinc-600 font-medium tracking-tight">SYSTEM_IDLE</span>`;
+            if (pollingInterval) clearInterval(pollingInterval);
         }
     </script>
 </body>

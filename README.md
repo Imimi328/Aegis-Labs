@@ -27,18 +27,11 @@
 
 <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 2rem 0;">
 
-<h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">⚙️ Quick Start (Local Use)</h2>
 
-<p style="margin-bottom: 1rem;">1. Start the internal backend engine:</p>
-<pre style="background-color: #f4f4f5; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1.5rem;"><code style="font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: #27272a;">python emogi_server.py</code></pre>
-
-<p style="margin-bottom: 1rem;">2. Open the dashboard:</p>
-<p style="margin-bottom: 2rem; color: #52525b;">Simply double-click the <code>index.html</code> file to open it in your browser. Ensure the <code>API_BASE</code> variable inside the file points to your local server address (e.g., <code>http://localhost:3000</code>).</p>
-
-<hr style="border: none; border-top: 1px solid #e4e4e7; margin: 2rem 0;">
 
 <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">📄 Credits</h2>
 <ul style="padding-left: 1.5rem; margin-bottom: 2rem; color: #52525b;">
     <li style="margin-bottom: 0.5rem;">A Product by <strong><a href="https://emogi.space" style="color: #09090b; text-decoration: underline;">emogi.space</a></strong>.</li>
+    
 </ul>
 </div>

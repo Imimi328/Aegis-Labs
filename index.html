@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis Labs | Digital Asset Protection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        zinc: {
+                            50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7',
+                            300: '#d4d4d8', 400: '#a1a1aa', 500: '#71717a',
+                            600: '#52525b', 700: '#3f3f46', 800: '#27272a',
+                            900: '#18181b', 950: '#09090b',
+                        },
+                        danger: '#dc2626', // Sharp red
+                        success: '#16a34a', // Sharp green
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            background-color: #fafafa; 
+            color: #09090b;
+        }
+        
+        /* Drafting Grid Background */
+        .bg-grid {
+            background-image: radial-gradient(#e4e4e7 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Minimal Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+        ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+        .card-shadow {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        /* Radar animation converted to functional line sweep */
+        .scanning-active { position: relative; overflow: hidden; }
+        .scanning-active::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,0,0,0.03), transparent);
+            animation: sweep 2s infinite linear; pointer-events: none;
+        }
+        @keyframes sweep { 100% { left: 200%; } }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col relative z-0">
+
+    <!-- Subtle Engineering Grid -->
+    <div class="fixed inset-0 z-[-1] bg-grid pointer-events-none"></div>
+
+    <!-- Minimalist Navigation -->
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200" id="navbar">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-zinc-950 flex items-center justify-center rounded-sm">
+                    <i class="fas fa-shield-halved text-white text-xs"></i>
+                </div>
+                <span class="text-lg font-bold tracking-tight text-zinc-950">Aegis Labs</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-3 py-1 bg-zinc-100 border border-zinc-200 rounded-full">
+                    <div class="w-2 h-2 bg-success rounded-full"></div>
+                    <span class="text-xs font-mono text-zinc-600 font-medium tracking-tight">SYS_ONLINE</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <header class="pt-20 pb-16 px-6 max-w-4xl mx-auto text-center">
+        <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-zinc-950 mb-6">
+            Digital Asset Protection.
+        </h1>
+        <p class="text-lg text-zinc-600 max-w-2xl mx-auto leading-relaxed">
+            Proprietary sports media is rapidly misappropriated. Upload official media to fingerprint, track, and flag unauthorized distribution across global platforms in real-time.
+        </p>
+    </header>
+
+    <!-- Main Application Interface -->
+    <main class="flex-grow max-w-7xl mx-auto px-6 pb-24 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Panel: Actions -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- Upload Module -->
+            <div class="bg-white border border-zinc-200 rounded-xl p-6 card-shadow">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="font-semibold text-zinc-900">Ingestion</h2>
+                    <span class="text-xs font-mono text-zinc-400">CLIP ViT-B-32</span>
+                </div>
+                
+                <div id="dropZone" class="border border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 rounded-lg p-8 text-center transition-colors cursor-pointer relative group">
+                    <input type="file" id="videoFile" accept="video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    
+                    <div id="uploadPrompt" class="flex flex-col items-center pointer-events-none">
+                        <i class="fas fa-arrow-up-from-bracket text-zinc-400 mb-3 text-xl group-hover:text-zinc-600 transition-colors"></i>
+                        <p class="text-sm font-medium text-zinc-900 mb-1">Select video file</p>
+                        <p class="text-xs text-zinc-500">MP4, MOV (Max 50MB)</p>
+                    </div>
+
+                    <div id="filePreview" class="hidden flex-col items-center pointer-events-none">
+                        <i class="fas fa-file-video text-zinc-900 mb-2 text-xl"></i>
+                        <p id="fileName" class="text-sm font-medium text-zinc-900 truncate w-full px-4"></p>
+                        <p id="fileSize" class="text-xs text-zinc-500 mt-1"></p>
+                    </div>
+                </div>
+
+                <button id="submitBtn" disabled class="w-full mt-4 bg-zinc-950 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+                    <span id="btnText">Execute Scan</span>
+                </button>
+            </div>
+
+            <!-- Telemetry Pipeline -->
+            <div id="statusTracker" class="bg-white border border-zinc-200 rounded-xl p-6 card-shadow hidden">
+                <h3 class="text-xs font-mono text-zinc-400 mb-6 uppercase tracking-wider">Process Log</h3>
+                <ul class="space-y-5 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-[-128px] before:h-full before:w-[1px] before:bg-zinc-200">
+                    
+                    <li class="relative flex items-start gap-4">
+                        <div id="step1-icon" class="w-5 h-5 rounded-full bg-zinc-950 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white">
+                            <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                        </div>
+                        <div class="flex-1">
+                            <h4 id="step1-text" class="text-sm font-medium text-zinc-900">Uploading asset</h4>
+                        </div>
+                    </li>
+                    
+                    <li class="relative flex items-start gap-4 opacity-40" id="step2-container">
+                        <div id="step2-icon" class="w-5 h-5 rounded-full bg-white border-2 border-zinc-300 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white"></div>
+                        <div class="flex-1">
+                            <h4 id="step2-text" class="text-sm font-medium text-zinc-900">Fingerprinting</h4>
+                        </div>
+                    </li>
+                    
+                    <li class="relative flex items-start gap-4 opacity-40" id="step3-container">
+                        <div id="step3-icon" class="w-5 h-5 rounded-full bg-white border-2 border-zinc-300 z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white"></div>
+                        <div class="flex-1">
+                            <h4 id="step3-text" class="text-sm font-medium text-zinc-900">Network Search</h4>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Right Panel: Intelligence Dashboard -->
+        <div class="lg:col-span-8 bg-white border border-zinc-200 rounded-xl flex flex-col h-[600px] overflow-hidden card-shadow relative">
+            
+            <!-- Dashboard Header -->
+            <div class="px-6 py-4 border-b border-zinc-200 bg-zinc-50 flex justify-between items-center z-20">
+                <div>
+                    <h2 class="font-semibold text-zinc-900">Threat Intelligence</h2>
+                    <p class="text-xs text-zinc-500 font-mono mt-0.5">Live monitoring array</p>
+                </div>
+                <div class="flex gap-6 text-right">
+                    <div>
+                        <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Flags</div>
+                        <div class="text-lg font-semibold text-zinc-900" id="statMatches">0</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Avg Risk</div>
+                        <div class="text-lg font-semibold text-zinc-400" id="statRisk">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Overlay -->
+            <div id="scanningOverlay" class="absolute inset-0 top-[72px] bg-white/90 backdrop-blur-sm z-10 hidden flex-col items-center justify-center border-t border-zinc-200">
+                <i class="fas fa-circle-notch fa-spin text-zinc-900 text-3xl mb-4"></i>
+                <h3 class="font-medium text-zinc-900 mb-1">Scanning Global Indices</h3>
+                <p class="text-xs font-mono text-zinc-500" id="scanLogs">Initializing search protocol...</p>
+            </div>
+
+            <!-- Results Data Area -->
+            <div id="resultsContainer" class="p-6 overflow-y-auto flex-grow bg-white z-0">
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center">
+                    <div class="w-12 h-12 mb-4 bg-zinc-100 border border-zinc-200 rounded-lg flex items-center justify-center text-zinc-400">
+                        <i class="fas fa-table-list"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-zinc-900 mb-1">No Data</h3>
+                    <p class="text-sm text-zinc-500 max-w-xs">Upload an asset to populate the intelligence dashboard.</p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Strictly Minimal Footer -->
+    <footer class="mt-auto border-t border-zinc-200 bg-white py-8">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p class="text-xs font-medium text-zinc-500">
+                &copy; 2026 Aegis Labs
+            </p>
+            
+            <p class="text-xs text-zinc-500">
+                Powered by <a href="https://emogi.space" target="_blank" class="text-zinc-900 font-semibold hover:underline">emogi.space</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- JS Logic (Functional parity with prior versions) -->
+    <script>
+        const API_BASE = "https://api.emogi.space"; 
+        let pollingInterval = null;
+
+        // DOM Elements
+        const fileInput = document.getElementById('videoFile');
+        const dropZone = document.getElementById('dropZone');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const filePreview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        
+        const statusTracker = document.getElementById('statusTracker');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const emptyState = document.getElementById('emptyState');
+        const statMatches = document.getElementById('statMatches');
+        const statRisk = document.getElementById('statRisk');
+        const scanningOverlay = document.getElementById('scanningOverlay');
+        const scanLogs = document.getElementById('scanLogs');
+
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-zinc-500', 'bg-zinc-100');
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-zinc-500', 'bg-zinc-100');
+                if (evt === 'drop' && e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect();
+                }
+            });
+        });
+
+        function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (file) {
+                uploadPrompt.classList.add('hidden');
+                filePreview.classList.remove('hidden');
+                filePreview.classList.add('flex');
+                fileName.textContent = file.name;
+                fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                submitBtn.disabled = false;
+            } else {
+                resetUploadZone();
+            }
+        }
+
+        function resetUploadZone() {
+            uploadPrompt.classList.remove('hidden');
+            filePreview.classList.add('hidden');
+            filePreview.classList.remove('flex');
+            submitBtn.disabled = true;
+            fileInput.value = '';
+            dropZone.classList.remove('scanning-active');
+        }
+
+        submitBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            emptyState.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+            
+            statusTracker.classList.remove('hidden');
+            
+            submitBtn.disabled = true;
+            btnText.innerHTML = `Uploading...`;
+            
+            dropZone.classList.add('scanning-active');
+            
+            updatePipelineStep(1, 'Uploading asset...', 'active');
+            updatePipelineStep(2, 'Fingerprinting', 'pending');
+            updatePipelineStep(3, 'Network Search', 'pending');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('Upload failed');
+                
+                const data = await response.json();
+                
+                updatePipelineStep(1, 'Upload verified', 'done');
+                updatePipelineStep(2, 'Extracting vectors...', 'active');
+                
+                startPolling(data.job_id);
+
+            } catch (error) {
+                console.error(error);
+                updatePipelineStep(1, 'Upload Failed', 'error');
+                submitBtn.disabled = false;
+                btnText.innerHTML = `Retry Scan`;
+                dropZone.classList.remove('scanning-active');
+            }
+        });
+
+        const logs = [
+            "Normalizing visual frames...",
+            "Computing cosine similarity...",
+            "Querying public networks...",
+            "Filtering thresholds..."
+        ];
+        let logIndex = 0;
+        let logInterval;
+
+        function startPolling(jobId) {
+            scanningOverlay.classList.remove('hidden');
+            scanningOverlay.classList.add('flex');
+            
+            logInterval = setInterval(() => {
+                scanLogs.innerText = logs[logIndex % logs.length];
+                logIndex++;
+            }, 1500);
+
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/status?job_id=${jobId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'processing') {
+                        updatePipelineStep(2, 'Fingerprint generated', 'done');
+                        updatePipelineStep(3, 'Searching networks...', 'active');
+                    }
+
+                    if (data.status === 'done') {
+                        clearInterval(pollingInterval);
+                        clearInterval(logInterval);
+                        scanningOverlay.classList.add('hidden');
+                        scanningOverlay.classList.remove('flex');
+                        
+                        updatePipelineStep(3, 'Analysis complete', 'done');
+                        renderMatches(data.matches);
+                        
+                        submitBtn.disabled = false;
+                        btnText.innerHTML = `Scan New Asset`;
+                        dropZone.classList.remove('scanning-active');
+                    } else if (data.status === 'not found') {
+                        clearInterval(pollingInterval);
+                        clearInterval(logInterval);
+                        scanningOverlay.classList.add('hidden');
+                        scanningOverlay.classList.remove('flex');
+                        
+                        updatePipelineStep(2, 'Process terminated', 'error');
+                        submitBtn.disabled = false;
+                        dropZone.classList.remove('scanning-active');
+                    }
+
+                } catch (error) {
+                    console.error("Polling error:", error);
+                }
+            }, 3000); 
+        }
+
+        function renderMatches(matches) {
+            resultsContainer.innerHTML = '';
+            statMatches.innerText = matches.length;
+            
+            if (matches.length === 0) {
+                statRisk.innerText = "0%";
+                statRisk.className = "text-lg font-semibold text-success";
+                resultsContainer.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-center">
+                        <div class="w-12 h-12 mb-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-center text-success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <h3 class="text-sm font-medium text-zinc-900 mb-1">Zero Violations Found</h3>
+                        <p class="text-sm text-zinc-500">Asset propagation is secure.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const avgScore = matches.reduce((acc, curr) => acc + curr[2], 0) / matches.length;
+            statRisk.innerText = (avgScore * 100).toFixed(0) + "%";
+            statRisk.className = "text-lg font-semibold text-danger";
+
+            const listWrapper = document.createElement('div');
+            listWrapper.className = "flex flex-col gap-3";
+            
+            matches.forEach((match) => {
+                const title = match[0];
+                const url = match[1];
+                const score = (match[2] * 100).toFixed(1);
+                
+                const videoIdMatch = url.match(/(?:v=)([^&]+)/);
+                const videoId = videoIdMatch ? videoIdMatch[1] : null;
+                const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : 'https://via.placeholder.com/120x68.png?text=No+Image';
+
+                const item = document.createElement('div');
+                item.className = "flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white border border-zinc-200 rounded-lg hover:border-zinc-300 transition-colors";
+                
+                item.innerHTML = `
+                    <img src="${thumbUrl}" alt="Thumbnail" class="w-full sm:w-28 h-16 object-cover rounded border border-zinc-200 shrink-0">
+                    
+                    <div class="flex-grow min-w-0">
+                        <h4 class="text-sm font-semibold text-zinc-900 truncate mb-1" title="${title}">${title}</h4>
+                        <div class="flex items-center gap-3">
+                            <a href="${url}" target="_blank" class="text-xs font-mono text-zinc-500 hover:text-zinc-900 truncate">
+                                ${videoId || 'View Source'} <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4 shrink-0 mt-3 sm:mt-0 w-full sm:w-auto">
+                        <div class="text-right flex-grow sm:flex-grow-0">
+                            <div class="text-[10px] font-mono text-zinc-500 uppercase">Match</div>
+                            <div class="text-sm font-semibold text-danger">${score}%</div>
+                        </div>
+                        <button class="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 text-xs font-medium px-3 py-1.5 rounded transition-colors whitespace-nowrap">
+                            Issue Takedown
+                        </button>
+                    </div>
+                `;
+                listWrapper.appendChild(item);
+            });
+            
+            resultsContainer.appendChild(listWrapper);
+        }
+
+        function updatePipelineStep(step, text, state) {
+            const container = document.getElementById(`step${step}-container`);
+            const iconEl = document.getElementById(`step${step}-icon`);
+            const textEl = document.getElementById(`step${step}-text`);
+
+            if(container) container.classList.remove('opacity-40');
+            textEl.innerText = text;
+
+            const baseClasses = "w-5 h-5 rounded-full z-10 flex items-center justify-center mt-0.5 outline outline-4 outline-white ";
+
+            if (state === 'pending') {
+                if(container) container.classList.add('opacity-40');
+                iconEl.className = baseClasses + "bg-white border-2 border-zinc-300";
+                iconEl.innerHTML = "";
+            } else if (state === 'active') {
+                iconEl.className = baseClasses + "bg-zinc-950";
+                iconEl.innerHTML = `<div class="w-1.5 h-1.5 bg-white rounded-full"></div>`;
+            } else if (state === 'done') {
+                iconEl.className = baseClasses + "bg-zinc-950";
+                iconEl.innerHTML = `<i class="fas fa-check text-[10px] text-white"></i>`;
+            } else if (state === 'error') {
+                iconEl.className = baseClasses + "bg-danger";
+                iconEl.innerHTML = `<i class="fas fa-times text-[10px] text-white"></i>`;
+            }
+        }
+    </script>
+</body>
+</html>

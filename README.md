@@ -1,5 +1,4 @@
 # Aegis Labs: Architectural Overview and Methodological Framework
-**Developed by emogi.space**
 
 ## 1. System Overview
 Aegis Labs constitutes a proprietary threat intelligence system designed for the proactive authentication of digital media assets. The platform mitigates intellectual property violations—specifically the unauthorized redistribution of sports media—by deploying a scalable, asynchronous pipeline that combines computer vision, natural language processing, and structural similarity analysis.
@@ -33,3 +32,7 @@ The identification of misappropriated assets is treated as a high-dimensional ne
 2.  **Max-Pooling Feature Aggregation:** For each target frame, the system isolates the highest similarity score against any source frame, generating a one-dimensional array of maximum frame scores.
 3.  **Bipartite Threshold Evaluation:** A rigid statistical evaluation determines the final flag status. The system defines a "strong match" threshold (e.g., $M_{ij} > 0.85$). The final confidence metric is derived from the product of the ratio of strong matches to total frames and the overall average match score. 
 4.  **Violation Flagging:** If the composite metrics exceed defined heuristic boundaries (e.g., $\text{Score} > 0.65$ and $\text{Average} > 0.75$), the candidate asset is definitively flagged as an intellectual property violation and logged into the persistent state manager.
+
+<ul style="padding-left: 1.5rem; margin-bottom: 2rem; color: #52525b;">
+    <li style="margin-bottom: 0.5rem;">A product by <strong><a href="https://emogi.space" style="color: #09090b; text-decoration: underline;">Team Emogi</a></strong>.</li>
+</ul>

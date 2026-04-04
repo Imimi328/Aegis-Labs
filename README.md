@@ -33,6 +33,7 @@ The identification of misappropriated assets is treated as a high-dimensional ne
 3.  **Bipartite Threshold Evaluation:** A rigid statistical evaluation determines the final flag status. The system defines a "strong match" threshold (e.g., $M_{ij} > 0.85$). The final confidence metric is derived from the product of the ratio of strong matches to total frames and the overall average match score. 
 4.  **Violation Flagging:** If the composite metrics exceed defined heuristic boundaries (e.g., $\text{Score} > 0.65$ and $\text{Average} > 0.75$), the candidate asset is definitively flagged as an intellectual property violation and logged into the persistent state manager.
 
+<h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">📄 Credits</h2>
 <ul style="padding-left: 1.5rem; margin-bottom: 2rem; color: #52525b;">
     <li style="margin-bottom: 0.5rem;">A product by <strong><a href="https://emogi.space" style="color: #09090b; text-decoration: underline;">Team Emogi</a></strong>.</li>
 </ul>

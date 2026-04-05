@@ -165,8 +165,8 @@
     </main>
 
     <script>
-        // TARGETING YOUR PRODUCTION EMOGI SERVER
-        const API_BASE = "https://api.emogi.space"; 
+        // Set to localhost for local testing
+        const API_BASE = "http://localhost:3000"; 
         
         let pollingInterval = null;
         let jobIsRunning = false;
@@ -263,7 +263,7 @@
             formData.append('country', document.getElementById('metaCountry').value);
 
             try {
-                addLog("Transmitting to Emogi Detection API...");
+                addLog(`Transmitting to API backend at ${API_BASE}...`);
                 
                 const response = await fetch(`${API_BASE}/upload`, { 
                     method: 'POST', 
@@ -281,7 +281,7 @@
 
             } catch (error) {
                 console.error("Upload Error:", error);
-                addLog("FATAL: Upload failed. Check CORS configuration.", true);
+                addLog("FATAL: Upload failed. Check server connection or CORS.", true);
                 resetUI();
             }
         });
@@ -317,9 +317,9 @@
             statMatches.innerText = matches.length;
             
             matches.forEach((match) => {
-                const title = match[0];
-                const url = match[1];
-                const score = (match[2] * 100).toFixed(1);
+                const title = match.title;
+                const url = match.url;
+                const score = (match.score * 100).toFixed(1);
 
                 // Only render if it's a NEW match
                 if (existingMatchUrls.has(url)) return;

@@ -1,8 +1,5 @@
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111; max-width: 900px; margin: auto; padding: 20px;">
 
-<!-- MathJax -->
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 <h1>Aegis Labs: Architectural Overview and Methodological Framework</h1>
 
 <h2>3. Ingestion and Feature Extraction Pipeline</h2>

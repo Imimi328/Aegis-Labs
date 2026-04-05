@@ -9,10 +9,9 @@ The following demonstration video provides a high-level overview of Aegis Labs i
 analysis, and detection workflow.
 </p>
 
-<video width="100%" controls>
-  <source src="https://raw.githubusercontent.com/Imimi328/Aegis-Labs/main/Videos/Test.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[![Watch Demo](https://img.youtube.com/vi/GR_q2VrB-cQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=GR_q2VrB-cQ)
+
+▶️ Click above to watch the demo
 <hr>
 
 <h2>1. System Overview</h2>

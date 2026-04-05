@@ -12,8 +12,8 @@ from PIL import Image
 import requests
 import json
 import uvicorn
+import re
 from fastapi.middleware.cors import CORSMiddleware
-
 
 # ----------------------------------------
 # CONFIG
@@ -27,7 +27,7 @@ vision_model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(DE
 
 # ---- Gemma (local API via llama.cpp / LM Studio) ----
 LLM_API_URL = "http://localhost:1234/v1/chat/completions"
-LLM_MODEL = "gemma-4e4b"
+LLM_MODEL = "gemma-4-e4b-it"
 
 # ----------------------------------------
 # FASTAPI INIT (DOCUMENTED)
@@ -138,10 +138,11 @@ def extract_features(path):
         inputs = processor(images=img, return_tensors="pt").to(DEVICE)
 
         with torch.no_grad():
-            outputs = vision_model.get_image_features(**inputs)
-            outputs = outputs / outputs.norm(dim=-1, keepdim=True)
+            outputs = vision_model.vision_model(**inputs)
+            image_embeds = outputs.pooler_output
+            image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
 
-        embs.append(outputs.cpu().numpy())
+        embs.append(image_embeds.cpu().numpy())
 
     return np.vstack(embs)
 
@@ -162,56 +163,72 @@ def match_video(src, tgt):
 # GEMMA QUERY GENERATION
 # ----------------------------------------
 def generate_queries(title, description, language, country):
-    prompt = f"""
-Generate YouTube search queries for detecting reuploads.
+    short_desc = description[:300] if description else ""
 
-Title: {title}
-Description: {description}
+    prompt = f"""
+You are an expert at finding pirated, reuploaded, or unauthorized fan content on YouTube.
+Based on the original video details below, generate 10 highly realistic YouTube search queries that a human would actually type to find clips, AMVs, edits, or full reuploads of this video.
+
+Original Video Title: {title}
+Description Snippet: {short_desc}
 Language: {language}
 Country: {country}
 
-Include:
-- highlights
-- clips
-- edits
-- shorts
-- reuploads
+STRICT RULES:
+1. DO NOT append technical words like "reupload", "detection", or "check" to the queries.
+2. Think like a fan or pirate. Add modifiers they actually use, such as: "AMV", "reaction", "full scene", "best moments", "lyrics", "sub", "dub", "clip", "shorts", "edit", "live".
+3. Use realistic variations of the title (e.g., drop punctuation, use abbreviations).
+4. Return exactly 10 queries.
 
-Return ONLY a JSON array.
+Return ONLY a valid JSON array of strings.
 """
 
     try:
+        print("\n[DEBUG] Asking LLM for search queries...")
         res = requests.post(
             LLM_API_URL,
             headers={"Content-Type": "application/json"},
             json={
                 "model": LLM_MODEL,
                 "messages": [
-                    {"role": "system", "content": "Return only valid JSON."},
+                    {
+                        "role": "system", 
+                        "content": "You are a backend API. You output raw, valid JSON arrays of strings. No markdown formatting, no conversational filler."
+                    },
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.3
+                "temperature": 0.7
             },
             timeout=60
         )
 
+        if res.status_code != 200:
+            print(f"[ERROR] LLM API returned: {res.status_code} - {res.text}")
+            return [title]
+
         data = res.json()
         text = data["choices"][0]["message"]["content"].strip()
-
-        if "```" in text:
-            text = text.split("```")[1]
-
-        return json.loads(text)
+        
+        match = re.search(r'\[.*\]', text, re.DOTALL)
+        
+        if match:
+            clean_json = match.group(0)
+            queries = json.loads(clean_json)
+            print(f"[DEBUG] LLM generated {len(queries)} queries successfully.")
+            return queries
+        else:
+            print("[DEBUG] Could not find a JSON array in the LLM response.")
+            return [title]
 
     except Exception as e:
-        print("LLM error:", e)
+        print("LLM parsing error:", e)
         return [title]
 
 # ----------------------------------------
 # WORKER LOOP
 # ----------------------------------------
 def worker_loop():
-    print("Worker started...")
+    print("\n[WORKER] Worker thread started. Scanning for jobs...")
     processed_ids = set()
 
     while True:
@@ -228,22 +245,39 @@ def worker_loop():
             description = job[4]
             language = job[5]
             country = job[6]
-            latest_ts = job[7]
+            
+            # The timestamp from the last time we ran this job
+            db_latest_ts = job[7] 
+            
+            # A temporary tracker for the newest video we find in THIS run
+            new_highest_ts = db_latest_ts
 
+            print(f"\n==============================================")
+            print(f"[WORKER] Processing Job ID {job_id}: '{title}'")
+            print(f"==============================================")
+            
+            print(f"[DEBUG] Extracting baseline features for local video...")
             source_emb = extract_features(video_path)
             if source_emb is None:
+                print(f"[ERROR] Failed to extract features from local video.")
                 continue
+            print(f"[DEBUG] Baseline features extracted successfully.")
 
             queries = generate_queries(title, description, language, country)
 
             with yt_dlp.YoutubeDL(ydl_opts()) as ydl:
                 for q in queries:
+                    print(f"\n[SEARCH] -> Executing YouTube search for: '{q}'")
                     try:
                         data = ydl.extract_info(f"ytsearch10:{q}", download=False)
-                    except:
+                    except Exception as e:
+                        print(f"[ERROR] yt-dlp search failed for '{q}': {e}")
                         continue
 
-                    for e in data.get("entries", []):
+                    entries = data.get("entries", [])
+                    print(f"[SEARCH] -> Found {len(entries)} videos. Analyzing...")
+
+                    for e in entries:
                         if not e:
                             continue
 
@@ -252,38 +286,59 @@ def worker_loop():
                             continue
 
                         ts = e.get("timestamp", 0)
-                        if ts <= latest_ts:
+                        
+                        # Compare against the static DB timestamp. 
+                        # (If db_latest_ts is 0, this is our very first sweep, so check everything!)
+                        if ts <= db_latest_ts and db_latest_ts != 0:
+                            print(f"  [SKIP] {vid} is older than our last sweep.")
                             continue
 
                         url = f"https://www.youtube.com/watch?v={vid}"
+                        vid_title = e.get('title', 'Unknown Title')
+                        
+                        print(f"  [CHECKING] {vid_title} ({url})")
 
                         try:
+                            # Getting direct stream URL to extract frames
                             info = ydl.extract_info(url, download=False)
+                            if "url" not in info:
+                                print(f"    -> [WARN] No direct stream URL found, skipping.")
+                                continue
+                            
+                            # Stream the video over the network to grab frames
                             emb = extract_features(info["url"])
 
                             if emb is None:
+                                print(f"    -> [WARN] Could not extract frames.")
                                 continue
 
                             score, avg = match_video(source_emb, emb)
+                            print(f"    -> SigLIP Similarity: {score:.2f} (Avg Frame Sim: {avg:.2f})")
 
                             if score > 0.65 and avg > 0.75:
+                                print(f"    -> 🚨 [MATCH FOUND!] Saving to database.")
                                 cur.execute(
                                     "INSERT INTO matches (job_id, title, url, score) VALUES (?, ?, ?, ?)",
                                     (job_id, info["title"], url, float(score))
                                 )
                                 conn.commit()
 
-                        except:
+                        except Exception as ex:
+                            print(f"    -> [ERROR] Failed during analysis: {ex}")
                             continue
 
                         processed_ids.add(vid)
 
-                        if ts > latest_ts:
-                            latest_ts = ts
+                        # Update our temporary tracker if we found a newer video
+                        if ts > new_highest_ts:
+                            new_highest_ts = ts
 
+            print(f"\n[WORKER] Finished current loop for Job ID {job_id}.")
+            
+            # Now that the loop is totally done, update the database clock for the NEXT time it runs
             cur.execute(
                 "UPDATE jobs SET latest_timestamp=? WHERE id=?",
-                (latest_ts, job_id)
+                (new_highest_ts, job_id)
             )
             conn.commit()
 
@@ -363,4 +418,3 @@ threading.Thread(target=worker_loop, daemon=True).start()
 # ----------------------------------------
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
-

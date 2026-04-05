@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Diagram - Aegis Continuous Engine</title>
+    <!-- Include Mermaid.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fafafa;
+            color: #09090b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .diagram-container {
+            background: white;
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            max-width: 1400px;
+            width: 100%;
+            overflow-x: auto;
+        }
+        h2 {
+            font-size: 1.25rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #27272a;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="diagram-container">
+        <h2>Figure 1: Aegis Continuous Engine Architecture</h2>
+        
+        <!-- Mermaid Definition -->
+        <div class="mermaid">
+graph TD
+    %% Styling definitions
+    classDef frontend fill:#f0f9ff,stroke:#0284c7,stroke-width:2px;
+    classDef backend fill:#fdf4ff,stroke:#c026d3,stroke-width:2px;
+    classDef worker fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
+    classDef db fill:#fffbeb,stroke:#d97706,stroke-width:2px;
+
+    %% Subgraphs
+    subgraph Client ["💻 Frontend: Aegis Labs UI (Vanilla JS)"]
+        A["👤 User Uploads Video<br/>& Context"] --> B("📤 POST /upload")
+        C("📡 GET /status Polling") --> D["🖥️ Live Detection Dashboard"]
+    end
+    class Client frontend;
+
+    subgraph Server ["⚙️ Backend: FastAPI"]
+        B --> E[("🗄️ SQLite DB:<br/>emogi.db")]
+        E -->|Insert Job| F["⏳ Job Status:<br/>'running'"]
+        E -.->|Fetch matches| C
+    end
+    class Server backend;
+    class E db;
+
+    subgraph Worker ["🤖 Continuous Background Engine"]
+        G(("🔄 Worker<br/>Thread")) -->|Polls jobs| E
+        G --> H["🎞️ OpenCV:<br/>Extract 12 Frames<br/>(Resize 224x224)"]
+        H --> I["🧠 SigLIP Encoder:<br/>L2 Norm Embeddings"]
+        
+        G --> J["✨ Google Gemma:<br/>Generate Search Queries"]
+        J -->|JSON Array| K["🔍 yt-dlp:<br/>Search Platform"]
+        
+        K --> L{"⏱️ Is Timestamp<br/>> Latest?"}
+        L -- Yes --> M["🖼️ Extract Candidate<br/>Frames & Embeddings"]
+        L -- No --> Q["⏭️ Skip Candidate"]
+        
+        I --> N("🧮 Tensor Math:<br/>C = T @ S.T")
+        M --> N
+        
+        N --> O{"⚖️ Final Score > 0.65<br/>& Avg > 0.75?"}
+        O -- Yes --> P["🚨 Record Match<br/>& Video URL"]
+        P -->|Insert Match| E
+        O -- No --> Q
+    end
+    class Worker worker;
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'base',
+            securityLevel: 'loose', // Allows HTML tags like <br/> to render properly
+            themeVariables: {
+                fontFamily: 'Inter',
+                primaryColor: '#fafafa',
+                primaryTextColor: '#09090b',
+                primaryBorderColor: '#d4d4d8',
+                lineColor: '#52525b',
+                secondaryColor: '#f4f4f5',
+                tertiaryColor: '#e4e4e7'
+            },
+            flowchart: {
+                curve: 'basis', // Smooth curves
+                nodeSpacing: 70, // Increased to give nodes more horizontal room
+                rankSpacing: 60, // Increased to give nodes more vertical room
+                htmlLabels: true
+            }
+        });
+    </script>
+</body>
+</html>

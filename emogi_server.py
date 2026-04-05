@@ -1,24 +1,4 @@
-
-"""
-========================================
-EMOGI VIDEO DETECTION API
-========================================
-
-Features:
-- Upload video
-- Provide metadata (title, description, language, country)
-- LLM generates search queries
-- Continuous scanning loop
-- Detects ONLY new uploads
-- Video-based matching (strict)
-- No Redis, uses SQLite
-- Clean shutdown safe
-
-Docs:
-- Open: http://localhost:3000/docs
-"""
-
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Query
 import sqlite3
 import tempfile
 import threading
@@ -27,12 +7,10 @@ import yt_dlp
 import numpy as np
 import cv2
 import torch
-import open_clip
+from transformers import AutoProcessor, AutoModel
 from PIL import Image
-import os
 import requests
 import json
-from datetime import datetime
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -42,13 +20,35 @@ from fastapi.middleware.cors import CORSMiddleware
 # ----------------------------------------
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-print("Loading CLIP model...")
-model, _, preprocess = open_clip.create_model_and_transforms(
-    "ViT-B-32", pretrained="openai"
-)
-model = model.to(DEVICE)
+# ---- Google SigLIP ----
+print("Loading Google SigLIP model...")
+processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
+vision_model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(DEVICE)
 
-app = FastAPI(title="Emogi Detection API")
+# ---- Gemma (local API via llama.cpp / LM Studio) ----
+LLM_API_URL = "http://localhost:1234/v1/chat/completions"
+LLM_MODEL = "gemma-4e4b"
+
+# ----------------------------------------
+# FASTAPI INIT (DOCUMENTED)
+# ----------------------------------------
+app = FastAPI(
+    title="Emogi Detection API",
+    description="""
+AI-powered video reupload detection system.
+
+Features:
+- Upload video
+- Continuous YouTube scanning
+- AI similarity detection
+
+Stack:
+- Google SigLIP (vision embeddings)
+- Gemma LLM (query generation)
+""",
+    version="2.0.0"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https://.*\.emogi\.space|https://emogi\.space",
@@ -56,7 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ----------------------------------------
 # DATABASE
@@ -97,7 +96,7 @@ def init_db():
 init_db()
 
 # ----------------------------------------
-# YT CONFIG (FIX WARNING)
+# YT-DLP CONFIG
 # ----------------------------------------
 def ydl_opts():
     return {
@@ -114,7 +113,7 @@ def ydl_opts():
     }
 
 # ----------------------------------------
-# ML FUNCTIONS
+# SIGLIP FEATURE EXTRACTION
 # ----------------------------------------
 def extract_features(path):
     frames = []
@@ -135,16 +134,20 @@ def extract_features(path):
     embs = []
     for f in frames:
         img = Image.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB))
-        t = preprocess(img).unsqueeze(0).to(DEVICE)
+
+        inputs = processor(images=img, return_tensors="pt").to(DEVICE)
 
         with torch.no_grad():
-            e = model.encode_image(t)
-            e = e / e.norm(dim=-1, keepdim=True)
+            outputs = vision_model.get_image_features(**inputs)
+            outputs = outputs / outputs.norm(dim=-1, keepdim=True)
 
-        embs.append(e.cpu().numpy())
+        embs.append(outputs.cpu().numpy())
 
     return np.vstack(embs)
 
+# ----------------------------------------
+# SIMILARITY MATCHING
+# ----------------------------------------
 def match_video(src, tgt):
     sim = tgt @ src.T
     frame_scores = np.max(sim, axis=1)
@@ -156,41 +159,52 @@ def match_video(src, tgt):
     return ratio * avg, avg
 
 # ----------------------------------------
-# LLM QUERY GENERATION
+# GEMMA QUERY GENERATION
 # ----------------------------------------
 def generate_queries(title, description, language, country):
     prompt = f"""
-    Generate YouTube search queries for detecting reuploads.
+Generate YouTube search queries for detecting reuploads.
 
-    Title: {title}
-    Description: {description}
-    Language: {language}
-    Country: {country}
+Title: {title}
+Description: {description}
+Language: {language}
+Country: {country}
 
-    Include:
-    - highlights
-    - clips
-    - edits
-    - shorts
-    - reuploads
+Include:
+- highlights
+- clips
+- edits
+- shorts
+- reuploads
 
-    Return JSON array only.
-    """
+Return ONLY a JSON array.
+"""
 
     try:
         res = requests.post(
-            "http://localhost:1234/api/v1/chat",
+            LLM_API_URL,
+            headers={"Content-Type": "application/json"},
             json={
-                "model": "qwen/qwen3.5-9b",
-                "input": prompt
+                "model": LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": "Return only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3
             },
-            timeout=30
+            timeout=60
         )
 
         data = res.json()
-        return json.loads(data["output"][0]["content"])
+        text = data["choices"][0]["message"]["content"].strip()
 
-    except:
+        if "```" in text:
+            text = text.split("```")[1]
+
+        return json.loads(text)
+
+    except Exception as e:
+        print("LLM error:", e)
         return [title]
 
 # ----------------------------------------
@@ -198,7 +212,6 @@ def generate_queries(title, description, language, country):
 # ----------------------------------------
 def worker_loop():
     print("Worker started...")
-
     processed_ids = set()
 
     while True:
@@ -239,7 +252,6 @@ def worker_loop():
                             continue
 
                         ts = e.get("timestamp", 0)
-
                         if ts <= latest_ts:
                             continue
 
@@ -281,8 +293,11 @@ def worker_loop():
 # ----------------------------------------
 # API ROUTES
 # ----------------------------------------
-
-@app.post("/upload")
+@app.post(
+    "/upload",
+    summary="Upload video",
+    description="Upload a video and start detection"
+)
 async def upload(
     file: UploadFile = File(...),
     title: str = Form(""),
@@ -306,11 +321,15 @@ async def upload(
     conn.commit()
     conn.close()
 
-    return {"job_id": job_id}
+    return {"job_id": job_id, "message": "Detection started"}
 
 
-@app.get("/status")
-def status(job_id: int):
+@app.get(
+    "/status",
+    summary="Check status",
+    description="Get detection progress and matches"
+)
+def status(job_id: int = Query(...)):
     conn = get_db()
     cur = conn.cursor()
 
@@ -323,8 +342,15 @@ def status(job_id: int):
     conn.close()
 
     return {
+        "job_id": job_id,
         "status": job[0] if job else "not found",
-        "matches": matches
+        "matches": [
+            {
+                "title": m[0],
+                "url": m[1],
+                "score": m[2]
+            } for m in matches
+        ]
     }
 
 # ----------------------------------------
@@ -333,5 +359,8 @@ def status(job_id: int):
 threading.Thread(target=worker_loop, daemon=True).start()
 
 # ----------------------------------------
+# RUN SERVER
+# ----------------------------------------
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
+

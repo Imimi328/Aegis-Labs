@@ -9,17 +9,7 @@ The following demonstration video provides a high-level overview of Aegis Labs i
 analysis, and detection workflow.
 </p>
 
-<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 10px;">
-  <iframe 
-    src="https://www.youtube.com/embed/GR_q2VrB-cQ"
-    title="Aegis Labs"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allowfullscreen
-    style="position: absolute; top:0; left:0; width:100%; height:100%;">
-  </iframe>
-</div>
+[![Aegis Labs Demo](https://img.youtube.com/vi/GR_q2VrB-cQ/0.jpg)](https://www.youtube.com/watch?v=GR_q2VrB-cQ)
 
 <hr>
 

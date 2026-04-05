@@ -5,7 +5,7 @@
 <h2>1. System Overview</h2>
 <p>
 Aegis Labs constitutes a proprietary threat intelligence system designed for the proactive authentication of digital media assets. 
-The platform mitigates intellectual property violations—specifically the unauthorized redistribution of sports media—by deploying a scalable, 
+The platform mitigates intellectual property violations, specifically the unauthorized redistribution of sports media, by deploying a scalable, 
 asynchronous pipeline that combines computer vision, natural language processing, and structural similarity analysis.
 </p>
 

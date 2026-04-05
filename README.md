@@ -1,6 +1,6 @@
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111; max-width: 900px; margin: auto; padding: 20px;">
 
-<h1>Aegis Labs: Architectural Overview and Methodological Framework</h1>
+<h1>Aegis Labs</h1>
 
 <h2>1. System Overview</h2>
 <p>
